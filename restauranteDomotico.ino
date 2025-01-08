@@ -49,8 +49,9 @@ String htmlPage = "<!DOCTYPE html>"
 "</body>"
 "</html>";
 
-const int numeroMesas=8;
+const int numeroMesas=6;
 String mesas[numeroMesas];
+String pedidos[numeroMesas];
 
 
 // Manejo de eventos WebSocket
@@ -68,8 +69,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
     case WStype_TEXT:
       Serial.printf("Mensaje recibido del cliente [%u]: %s\n", num, payload);
       // Enviar respuesta al cliente
-      funciones(String((char*)payload));
-      webSocket.sendTXT(num, "Mensaje recibido: " + String((char*)payload));
+      funciones(String((char*)payload),num);
+      webSocket.broadcastTXT(""+String((char*)payload));
       break;
 
     case WStype_BIN:
@@ -100,29 +101,40 @@ void setup() {
   Serial.println("Servidor WebSocket iniciado en el puerto 81");
   for(int i=0;i<numeroMesas;i++){
     mesas[i]="Disponible";
+    pedidos[i]="{\"pedido\":true,\"mesa\":\""+String(i)+"\",\"menu\":[{\"id\":1,\"nombre\":\"Hamburguesa\",\"precio\":5,\"cantidad\":0},{\"id\":2,\"nombre\":\"Pizza\",\"precio\":8,\"cantidad\":0},{\"id\":3,\"nombre\":\"Coca Cola\",\"precio\":1.5,\"cantidad\":0},{\"id\":4,\"nombre\":\"Café\",\"precio\":2,\"cantidad\":0}]}";
   }
 }
 
 void loop() {
+  if (Serial.available() > 0) { 
+    String datoRecibido = Serial.readStringUntil('\n');//{"reserva":true,"mesa":"4"}
+    funciones(datoRecibido,-1);
+    actualizarMesas();
+  }
   // Manejar conexiones del servidor web
   server.handleClient();
 
   // Manejar conexiones WebSocket
   webSocket.loop();
 }
-void funciones(String msg){
+void funciones(String msg,int num){
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, msg);
   if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
     return;
   }
   if(doc["reserva"]){
     String estado= (mesas[doc["mesa"].as<int>()]=="Disponible")?"Ocupado":"Disponible";
-    Serial.println(estado);
     mesas[doc["mesa"].as<int>()]=estado;
+    pedidos[doc["mesa"].as<int>()]="{\"pedido\":true,\"mesa\":\""+String(doc["mesa"].as<int>())+"\",\"menu\":[{\"id\":1,\"nombre\":\"Hamburguesa\",\"precio\":5,\"cantidad\":0},{\"id\":2,\"nombre\":\"Pizza\",\"precio\":8,\"cantidad\":0},{\"id\":3,\"nombre\":\"Coca Cola\",\"precio\":1.5,\"cantidad\":0},{\"id\":4,\"nombre\":\"Café\",\"precio\":2,\"cantidad\":0}]}";
     actualizarMesas();
+  }
+  if(doc["seleccion"]){
+    webSocket.sendTXT(num, pedidos[doc["mesa"].as<int>()]);
+  }
+  if(doc["pedido"]){
+    pedidos[doc["mesa"].as<int>()]=msg;
+    webSocket.broadcastTXT(pedidos[doc["mesa"].as<int>()]);
   }
 }
 
@@ -130,12 +142,13 @@ void actualizarMesas(){
     String jsonMesasDisponibles;
   jsonMesasDisponibles="{\"mesasDisponibles\":[";
       for(int i=0;i<numeroMesas;i++){
-        if(mesas[i]=="Disponible"){
-            jsonMesasDisponibles=jsonMesasDisponibles+"{\"id\":"+"\""+(i)+"\",\"estado\":\""+mesas[i]+"\"}";
-          if(i!=numeroMesas-1){
-            jsonMesasDisponibles=jsonMesasDisponibles+",";
-          }
+        if(mesas[i]=="Ocupado"){
+            jsonMesasDisponibles=jsonMesasDisponibles+"{\"id\":"+"\""+(i)+"\",\"estado\":\""+mesas[i]+"\"},";
+
         }
+      }
+      if(jsonMesasDisponibles.substring(jsonMesasDisponibles.length()-1,jsonMesasDisponibles.length())==","){
+           jsonMesasDisponibles=jsonMesasDisponibles.substring(0,jsonMesasDisponibles.length()-1);
       }
       jsonMesasDisponibles=jsonMesasDisponibles+"]}";
       webSocket.broadcastTXT(jsonMesasDisponibles.c_str());
