@@ -45,6 +45,7 @@ int buzzer = 8;
 int ventilador = 7;
 //SERVOMOTOR
 Servo servoPuerta;
+
 /////////////////////////////////////////////////////////////////////
 // MESAS
 #define mesa_1_V 23
@@ -75,6 +76,7 @@ Servo servoPuerta;
 
 int focosVMesas[numeroMesas] = { mesa_1_V, mesa_2_V, mesa_3_V, mesa_4_V, mesa_5_V, mesa_6_V };
 int focosRMesas[numeroMesas] = { mesa_1_R, mesa_2_R, mesa_3_R, mesa_4_R, mesa_5_R, mesa_6_R };
+int focosMesasPrograma[numeroMesas] ={10,9,16,17,18,19}; 
 /////////////////////////////////////////////////////////////////////
 
 void setup() {
@@ -103,9 +105,14 @@ void setup() {
   pinMode(mesa_6_R, OUTPUT);   //ROJO
   pinMode(pul_mesa_6, INPUT);  //PULSADOR MESA 6
 
-  pinMode(9, OUTPUT);
-  pinMode(10, OUTPUT);
-  pinMode(11, OUTPUT);
+
+  for (int i = 0; i < 6; i++) {
+    pinMode(focosMesasPrograma[i], OUTPUT);
+    digitalWrite(focosMesasPrograma[i], LOW);
+  }
+
+  pinMode(11,OUTPUT);
+  pinMode(12,OUTPUT);
 
   pinMode(buzzer, OUTPUT);
   pinMode(ventilador, OUTPUT);
@@ -194,10 +201,12 @@ void distancia() {
   Serial.print("Ping: ");
   Serial.print(sonar.ping_cm());  // Send ping, get distance in cm and print result (0 = outside set distance range)
   Serial.println("cm");
-  if (sonar.ping_cm() < 20) {
+  if (sonar.ping_cm() < 8) {
     servoPuerta.write(90);
+    digitalWrite(12,HIGH);
     delay(2000);
     servoPuerta.write(5);
+    digitalWrite(12,LOW);
     delay(100);
   }
 }
@@ -299,6 +308,10 @@ void Contador() {
       digitalWrite(buzzer, HIGH);
       delay(100);
       digitalWrite(buzzer, LOW);
+      digitalWrite(11,HIGH);
+      delay(500);
+      digitalWrite(11,LOW);
+
 
       // Verificar si el contador llega a 6
       if (contador == 6) {
@@ -332,41 +345,11 @@ void actualizarFocos(int mesa) {
   if (mesas[mesa] == "Disponible") {
     digitalWrite(focosVMesas[mesa], HIGH);
     digitalWrite(focosRMesas[mesa], LOW);
+    digitalWrite(focosMesasPrograma[mesa], LOW);
   } else {
     digitalWrite(focosVMesas[mesa], LOW);
     digitalWrite(focosRMesas[mesa], HIGH);
+    digitalWrite(focosMesasPrograma[mesa], HIGH);
   }
 
-  switch (mesa) {
-    case 1:
-      digitalWrite(11, LOW);
-      digitalWrite(10, LOW);
-      digitalWrite(9, HIGH);
-      break;
-    case 2:
-      digitalWrite(11, LOW);
-      digitalWrite(10, HIGH);
-      digitalWrite(9, LOW);
-      break;
-    case 3:
-      digitalWrite(11, LOW);
-      digitalWrite(10, HIGH);
-      digitalWrite(9, HIGH);
-      break;
-    case 4:
-      digitalWrite(11, HIGH);
-      digitalWrite(10, LOW);
-      digitalWrite(9, LOW);
-      break;
-    case 5:
-      digitalWrite(11, HIGH);
-      digitalWrite(10, LOW);
-      digitalWrite(9, HIGH);
-      break;
-    case 6:
-      digitalWrite(11, HIGH);
-      digitalWrite(10, HIGH);
-      digitalWrite(9, LOW);
-      break;
-  }
 }
