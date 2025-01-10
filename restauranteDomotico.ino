@@ -6,8 +6,7 @@
 
 
 // Configuración del Access Point
-const char *ssid = "yourAP";
-const char *password = "yourPassword";
+const char *ssid = "Restaurante";
 
 // Crear servidor web en el puerto 80
 WebServer server(80);
@@ -309,6 +308,8 @@ const int numeroMesas=6;
 String mesas[numeroMesas];
 String pedidos[numeroMesas];
 
+#define RXp2 16
+#define TXp2 17
 
 // Manejo de eventos WebSocket
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
@@ -337,7 +338,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
   
 void setup() {
   Serial.begin(115200);
-
+  Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);
   // Configurar ESP32 como Access Point
  // WiFi.softAP(ssid, password);
   WiFi.softAP(ssid);
@@ -366,8 +367,9 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) { 
-    String datoRecibido = Serial.readStringUntil('\n');//{"reserva":true,"mesa":"4"}
+  if (Serial2.available() > 0) { 
+    String datoRecibido = Serial2.readStringUntil('\n');//{"reserva":true,"mesa":"4"}
+    Serial.println("arduino: "+datoRecibido);
     funciones(datoRecibido,-1);
     actualizarMesas();
   }
@@ -377,6 +379,8 @@ void loop() {
   // Manejar conexiones WebSocket
   webSocket.loop();
 }
+
+
 void funciones(String msg,int num){
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, msg);
@@ -385,6 +389,7 @@ void funciones(String msg,int num){
   }
   if(doc["reserva"]){
     String estado= (mesas[doc["mesa"].as<int>()]=="Disponible")?"Ocupado":"Disponible";
+    Serial2.println("{\"reserva\":true,\"mesa\":\""+String(doc["mesa"].as<int>())+"\"}");
     mesas[doc["mesa"].as<int>()]=estado;
     pedidos[doc["mesa"].as<int>()]="{\"pedido\":true,\"mesa\":\""+String(doc["mesa"].as<int>())+"\",\"menu\":[{\"id\":1,\"nombre\":\"Hamburguesa\",\"precio\":5,\"cantidad\":0},{\"id\":2,\"nombre\":\"Pizza\",\"precio\":8,\"cantidad\":0},{\"id\":3,\"nombre\":\"Coca Cola\",\"precio\":1.5,\"cantidad\":0},{\"id\":4,\"nombre\":\"Café\",\"precio\":2,\"cantidad\":0}]}";
     actualizarMesas();
